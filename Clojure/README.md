@@ -1,4 +1,6 @@
-Labs for Modern Programming Methods course in NSU
+## Labs for Modern Programming Methods course in NSU
+
+Материалы лекций доступны в Google Classroom.
 
 Язык и документация:
 http://clojure.org
