@@ -1,4 +1,5 @@
-## Labs for Modern Programming Methods course in NSU
+## Современные методы программирования
+(Магистратура, 1 семестр)
 
 Материалы лекций доступны в Google Classroom.
 
