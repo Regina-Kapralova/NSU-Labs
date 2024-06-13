@@ -1,0 +1,1 @@
+C:\NSU-Labs\C++\WordFrequency\x64\Debug\WordFrequency.exe
