@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<GtaTestDurations xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Executable>C:\NSU-Labs\C++\Lab0b\WordFrequency\x64\Debug\WordFrequencyTests.exe</Executable>
-  <TestDurations>
-    <TestDuration Test="TokenService_test.split_test" Duration="1" />
-    <TestDuration Test="WordStateService_test.accumulation_test" Duration="1" />
-    <TestDuration Test="WordStateService_test.getresult_test" Duration="1" />
-  </TestDurations>
-</GtaTestDurations>
