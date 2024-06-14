@@ -1,0 +1,43 @@
+import lingo/pegcode/driver;
+
+gram = "#include C:\f\labs\lab567.lingo";
+
+Expression ::= Sum, Div, Sub, Mul, Int;
+Sum(x: Expression, y: Expression);
+Div(x: Expression, y: Expression);
+Sub(x: Expression, y: Expression);
+Mul(x: Expression, y: Expression);
+Int(n: int);
+
+
+totree(str: string) -> Expression {
+  parsic(compilePegGrammar(gram), str, defaultPegActions)
+}
+
+toline(exp: Expression) -> string {
+  switch(exp) {
+    Sum(l, r): { "(" + strGlue([toline(l), "+", toline(r)], " ") + ")"; }
+    Sub(l, r): { "(" + strGlue([toline(l), "-", toline(r)], " ") + ")"; }
+    Mul(l, r): { "(" + strGlue([toline(l), "*", toline(r)], " ") + ")"; }
+    Div(l, r): { "(" + strGlue([toline(l), "/", toline(r)], " ") + ")"; }
+    Int(n): { i2s(n); }
+  }
+}
+
+calc(exp: Expression) -> int {
+  switch(exp) {
+    Sum(l, r): { calc(l) + calc(r); }
+    Sub(l, r): { calc(l) - calc(r); }
+    Mul(l, r): { calc(l) * calc(r); }
+    Div(l, r): { calc(l) / calc(r); }
+    Int(n): { n; }
+  }
+}
+
+main() {
+  t = totree("(((2 * 1) + (3 / 5)) - 7)");
+  println(toline(t));
+  println(t);
+  println(calc(t));
+  quit(0);
+}

@@ -1,0 +1,11 @@
+import form/renderform;
+
+main() {
+  a : [int] = [1, 28, 3, 44];
+  println(a);
+
+  b =  map(a, i2s);
+  c = fold(a, 0, \x,y -> x+y);
+  println(b);
+  println(c);
+}

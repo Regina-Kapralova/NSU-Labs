@@ -1,0 +1,108 @@
+import lingo/pegcode/driver;
+
+gram = "#include C:\f\labs\lab9.lingo";
+
+Expression ::= Sum, Div, Sub, Mul, Int, Perem, Powah, Drob;
+Sum(x: Expression, y: Expression);
+Div(x: Expression, y: Expression);
+Sub(x: Expression, y: Expression);
+Mul(x: Expression, y: Expression);
+Powah(e: Expression, p: int);
+Drob(x: int, y: int);
+Perem(name: string);
+Int(n: int);
+
+totree(str: string) -> Expression {
+  parsic(compilePegGrammar(gram), str, defaultPegActions)
+}
+
+toline(exp: Expression) -> string {
+  switch(exp) {
+    Sum(l, r): { "(" + strGlue([toline(l), "+", toline(r)], " ") + ")"; }
+    Sub(l, r): { "(" + strGlue([toline(l), "-", toline(r)], " ") + ")"; }
+    Mul(l, r): { "(" + strGlue([toline(l), "*", toline(r)], " ") + ")"; }
+    Div(l, r): { "(" + strGlue([toline(l), "/", toline(r)], " ") + ")"; }
+    Powah(e, p): {"(" + strGlue([toline(e), "^", i2s(p)], " ") + ")"; }
+    Drob(x, y): { "(" + strGlue([i2s(x), "/", i2s(y)], " ") + ")"; }
+    Perem(name): { name; }
+    Int(n): { i2s(n); }
+  }
+}
+
+value (name: string, names: [string], values: [int]) -> int {
+  result : ref int = ref 0;
+  fori(0, length(names)-1, (\i -> {
+	 		if (names[i] == name) {
+				 result := i;
+			}	
+	 	}))
+  values[^result];
+}
+
+icalc(exp: Expression, names: [string], values: [int]) -> int {
+  switch(exp) {
+    Sum(l, r): { icalc(l, names, values) + icalc(r, names, values); }
+    Sub(l, r): { icalc(l, names, values) - icalc(r, names, values); }
+    Mul(l, r): { icalc(l, names, values) * icalc(r, names, values); }
+    Div(l, r): { icalc(l, names, values) / icalc(r, names, values); }
+    Powah(e, p): { pow(icalc(e, names, values), p); }
+    Drob(x, y): { x / y; }
+    Perem(name): { value(name, names, values); }
+    Int(n): { n; }
+  }
+}
+
+NOD(x: int, y: int) -> int {
+    if (y == 0) { x; } 
+    else { NOD(y, x % y); }
+}
+reduse(d: Drob) -> Drob {
+    Drob(d.x / NOD(d.x, d.y), d.y / NOD(d.x, d.y));
+}
+
+dcalc(nt: Expression, names: [string], values: [int]) -> Drob {
+    switch(nt) {
+        Sum(l, r): {
+            d1 = dcalc(l, names, values);
+            d2 = dcalc(r, names, values);
+            reduse(Drob(d1.x*d2.y + d2.x*d1.y, d1.y*d2.y));
+        }
+        Sub(l, r): {
+            d1 = dcalc(l, names, values);
+            d2 = dcalc(r, names, values);
+            reduse(Drob(d1.x*d2.y - d2.x*d1.y, d1.y*d2.y ));
+        } 
+        Mul(l, r): {
+            d1 = dcalc(l, names, values);
+            d2 = dcalc(r, names, values);
+            reduse(Drob(d1.x * d2.x, d1.y * d2.y));
+        }
+        Div(l, r): {
+            d1 = dcalc(l, names, values);
+            d2 = dcalc(r, names, values);
+            reduse(Drob(d1.x * d2.y, d1.y * d2.x));
+        }
+        Powah(e, p): {
+            e1 = dcalc(e, names, values);
+            reduse(Drob(pow(e1.x, p), pow(e1.y, p)));
+        }
+        Drob(x, y): { reduse(Drob(x, y)); }
+        Perem(name): { Drob(value(name, names, values), 1); }
+        Int(n): { Drob(n, 1); }
+    }
+}
+
+main() {
+  it = totree("(((2 ^ 2) + (17 / x)) - 7)");
+  println(toline(it));
+  println(it);
+  println(icalc(it, ["y", "x"], [5, 1]));
+  println(" ");
+
+  dt = totree("((1 / 2) + ((1 / y) ^ 2))");
+  println(toline(dt));
+  println(dt);
+  println(dcalc(dt, ["y", "x"], [5, 2]));
+
+  quit(0);
+}

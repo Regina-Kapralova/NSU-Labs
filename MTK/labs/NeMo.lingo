@@ -1,0 +1,42 @@
+prog = s decls*:v s command*:l s {createProgram(:v, :l)};
+
+decls = s "var" s letter+$l s ":" s type:t s ";" s {Declaration($l, :t)};
+type = t_int | t_arr;
+t_int = "int" {VarInt()};
+t_arr = "[" ws "int" ws "]" {VarArr()};
+
+command =  assign | test | cond | print | range_execute | select | while;
+
+assign =  s letter+$v s "=" s exp:e s {_Assign(Variable($v), :e)};
+test = s "(" s comp:c s ")" s "?" s {_Test(:c)}; 
+cond = s "if" s comp:op s "then" s "{" s command:t s "}" s "else" s "{" s command:f "}" s {createCondition(:op, :t, :f)};
+comp = s "(" s exp:l s compare$c s exp:r s ")" s {Comparison($c, :l, :r)};
+print = s "print" s "(" s exp:e s ")" s {_Print(:e)};
+range_execute = s "{" s command:c s range_execute_*:c_ s "}" s {createRangeExecute(:c, :c_)};
+    range_execute_ = s ";" s command:c s {:c};
+select = s "{" s command:c s select_+:r s "}" s {createSelect(:c, :r)};
+    select_ = s "U" s command:c s {:c};
+while = s "while" s "(" s comp:c s ")" s command:body {createWhile(:c, :body)};
+/*assignMas = s letter+$m s "[" s digit+$i s "]" s "=" s exp:e s "goto" s "{" label*:goto s "}" s {Assign(Variable($m), SetArr(Variable($m), Const(s2i($i)), :e), :goto)};*/
+
+exp = sum | sub | mul | div | int | var | element | powah | bool_exp;
+sum = "(" ws exp:l ws "+" ws exp:r ws ")" {Sum(:l, :r)};
+sub = "(" ws exp:l ws "-" ws exp:r ws ")" {Sub(:l, :r)};
+mul = "(" ws exp:l ws "*" ws exp:r ws ")" {Mul(:l, :r)};
+div = "(" ws exp:l ws "/" ws exp:r ws ")" {Div(:l, :r)};
+int = digit+$n ws {Int(s2i($n))};
+var = letter+$s {Variable($s)};
+element = "(" ws letter+$s ws "[" ws exp:e ws "]" ws ")" {Element($s, :e)};
+powah = "(" ws* exp:l ws+ "^" ws+ digit+$p ws* ")" {Powah(:l, s2i($p))};
+bool_exp = "(" ws exp:l ws compare$c ws exp:r ws ")" {Comparison($c, :l, :r)};
+
+assigned = var | element;
+
+label = digit+$d ","? s {Label(s2i($d))};
+operation = "+" | "-" | "*" | "/" | "%" | "^";
+compare = "==" | "!=" | "<=" | ">=" | ">" | "<";
+letter = 'a' - 'z' | 'A' - 'Z';
+digit = '0' - '9';
+space = " " | "\t" | "\n" | "\r";
+s = space*;
+ws = s;

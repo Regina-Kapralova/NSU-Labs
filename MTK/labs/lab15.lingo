@@ -1,0 +1,37 @@
+program = ws declar*:d instr*:l {Program(:d, :l)};
+
+exp = sum | sub | mul | div | int | var | element | powah | bool_exp;
+sum = "(" ws exp:l ws "+" ws exp:r ws ")" {Sum(:l, :r)};
+sub = "(" ws exp:l ws "-" ws exp:r ws ")" {Sub(:l, :r)};
+mul = "(" ws exp:l ws "*" ws exp:r ws ")" {Mul(:l, :r)};
+div = "(" ws exp:l ws "/" ws exp:r ws ")" {Div(:l, :r)};
+int = digit+$n ws {Int(s2i($n))};
+var = letter+$s {Variable($s)};
+element = "(" ws letter+$s ws "[" ws exp:e ws "]" ws ")" {Element($s, :e)};
+powah = "(" ws* exp:l ws+ "^" ws+ digit+$p ws* ")" {Powah(:l, s2i($p))};
+bool_exp = "(" ws exp:l ws compare$c ws exp:r ws ")" {Comparison($c, :l, :r)};
+
+assigned = var | element;
+
+type = t_int | t_arr;
+t_int = "int" {VarInt()};
+t_arr = "[" ws "int" ws "]" {VarArr()};
+declar = "var" ws letter+$s ws ":" ws type:t ws ";" ws {Declaration($s, :t)};
+
+label = digit+$d ws {Label(s2i($d))};
+
+command = assign | jamp | cond | print | assArr;
+assign = ws assigned:s ws ":=" ws exp:e ws "goto" ws "{" ws label*:goto ws "}" ws {Assign(:s, :e, :goto)};
+assArr = ws letter+$s ws ":=" ws "[" ws int*:arr ws "]" ws "goto" ws "{" ws label*:goto ws "}" ws {AssignArr($s, :arr, :goto)};
+jamp = ws "goto" ws "{" ws label*:goto ws "}" ws {Jamp(:goto)};
+cond = ws "if" ws bool_exp:op ws "then" ws "{" ws label*:t ws "}" ws "else" ws "{" ws label*:f ws "}" ws {Condition(:op, :t, :f)};
+print = ws "print" ws "(" ws exp:e ws ")" ws "goto" ws "{" ws label*:goto ws "}" ws {Print(:e, :goto)};
+
+instr = ws label:l ws ":" ws command:c ws ";"* ws {Instruction(:l, :c)};
+
+digit = '0' - '9';
+letter = 'a' - 'z' | 'A' - 'Z';
+operation = "+" | "-" | "*" | "/" | "%";
+compare = "==" | "!=" | "<=" | ">=" | ">" | "<";
+s = " " | "\t" | "\n" | "\r";
+ws = s*;

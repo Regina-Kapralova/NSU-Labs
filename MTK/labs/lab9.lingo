@@ -1,0 +1,11 @@
+exp = sum | sub | mul | div | int | perem | powah;
+sum = "(" ws* exp:l ws+ "+" ws+ exp:r ws* ")" {Sum(:l, :r)};
+sub = "(" ws* exp:l ws+ "-" ws+ exp:r ws* ")" {Sub(:l, :r)};
+mul = "(" ws* exp:l ws+ "*" ws+ exp:r ws* ")" {Mul(:l, :r)};
+div = "(" ws* exp:l ws+ "/" ws+ exp:r ws* ")" {Div(:l, :r)};
+int = digit+$n {Int(s2i($n))};
+perem = word+$s {Perem($s)};
+powah = "(" ws* exp:l ws+ "^" ws+ digit+$p ws* ")" {Powah(:l, s2i($p))};
+digit = '0'-'9';
+word = 'a'-'z';
+ws = " ";

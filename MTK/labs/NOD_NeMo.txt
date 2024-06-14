@@ -1,0 +1,17 @@
+var x : [int];
+var y : int;
+var z : [int];
+{
+	(x[0]) = 30;
+	y = ((x[0])/3);
+	if (y < (x[0])) 
+	then
+		{print(y)}
+	else 
+		{print((x[0]))};
+	print((x[0]));
+	while ((x[0]) >= y){
+		(x[0]) = ((x[0]) - y);
+		print((x[0]))
+	}
+}

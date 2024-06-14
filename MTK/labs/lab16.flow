@@ -1,0 +1,588 @@
+import ds/tree;
+import runtime;
+import lingo/pegcode/driver;
+
+Expression ::= Sum, Div, Sub, Mul, Int, Variable, Powah, Comparison, Element;
+Sum(x: Expression, y: Expression);
+Div(x: Expression, y: Expression);
+Sub(x: Expression, y: Expression);
+Mul(x: Expression, y: Expression);
+Powah(e: Expression, p: int);
+Variable(name: string);
+Int(n: int);
+Comparison(operation : string, l : Expression, r : Expression);
+Element(name: string, index: Expression);
+
+Assigned ::= Variable, Element;
+
+VarValues ::= Int, Array;
+Array(a : Tree<int, Int>); 
+
+VarType ::= VarInt, VarArr;
+VarInt();
+VarArr();
+
+Label(l : int);
+State(label : Label, vars : Tree<string, VarValues>);
+
+Command ::= Assign, AssignArr, Jamp, Condition, Print;
+Assign(var : Assigned, e : Expression, goto : [Label]);
+AssignArr(name : string, arr : [Int], goto : [Label]);
+Jamp(goto : [Label]);
+Condition(bool_exp : Comparison, t : [Label], f : [Label]);
+Print(e : Expression, goto : [Label]);
+
+Declaration(name : string, type : VarType);
+Instruction(label : Label, command : Command);
+Program(decls : [Declaration], instrs : [Instruction]);
+
+		// исполнение программы
+
+Init_vars(decls : [Declaration]) -> Tree<string, VarValues> {
+	fold(decls, makeTree(), \acc, v -> {
+		switch(v.type) {
+			VarInt(): setTree(acc, v.name, Int(0));
+			VarArr(): setTree(acc, v.name, Array(makeTree()));
+		}
+	});
+}
+
+Init_tree(instrs : [Instruction]) -> Tree<Label, Command> {
+	fold(instrs, makeTree(), \acc, v -> {
+		setTree(acc, v.label, v.command);
+	});
+}
+
+Get_states(goto : [Label], vars : Tree<string, VarValues>) -> [State] {
+	fold(goto, [], \acc, val -> {
+		concat(acc, [State(val, vars)]);
+	});
+}
+
+Calculate(exp: Expression, vars : Tree<string, VarValues>) -> int {
+  switch(exp) {
+    Sum(l, r): { Calculate(l, vars) + Calculate(r, vars); }
+    Sub(l, r): { Calculate(l, vars) - Calculate(r, vars); }
+    Mul(l, r): { Calculate(l, vars) * Calculate(r, vars); }
+    Div(l, r): { 
+      assert(Calculate(r, vars) != 0, "Error: division by zero in integer calculator.\n");
+      Calculate(l, vars) / Calculate(r, vars); 
+    }
+    Powah(e, p): { 
+      assert(p >= 0, "Error: negative exponent in integer calculator.\n");
+      pow(Calculate(e, vars), p); 
+    }
+	Comparison(operation, l, r): {
+		l1 = Calculate(l, vars);
+		r1 = Calculate(r, vars);
+		if (operation == "==" && l1 == r1) { 1; }
+		else if (operation == "!=" && l1 != r1) { 1; }
+		else if (operation == ">=" && l1 >= r1) { 1; }
+		else if (operation == "<=" && l1 <= r1) { 1; }
+		else if (operation == ">" && l1 > r1) { 1; }
+		else if (operation == "<" && l1 < r1) { 1; }
+		else { 0; }
+		}
+	Variable(name): { 
+		switch (lookupTree(vars, name)) {
+			Some(res): { 
+				switch(res) {
+					Int(n): { n;}
+					Array(a): { assert(false, "Error: variable expected but array received.\n"); 0;}
+				} 
+			} 
+			None(): { assert(false, "Error: value of variable is not found.\n"); 0; }
+		} 
+	}
+	Element(name, index): {
+		switch (lookupTree(vars, name)) {
+			Some(res): { 
+				switch(res) {
+					Int(n): { assert(false, "Error: array expected but variable received.Cannot get value by index.\n"); 0; }
+					Array(a): {
+						index1 = Calculate(index, vars);
+						switch (lookupTree(a, index1)) {
+							Some(res1): { res1.n; }
+							None(): { assert(false, "Error: value of element is not found.\n"); 0; }
+						}
+					} 
+				}
+			} 
+			None(): { assert(false, "Error: array is not found.\n"); 0; }
+		}
+	}
+    Int(n): { n; }
+  }
+}
+
+Execute_command(state : State, tr_in : Tree<Label, Command>) -> [State] {
+	switch (lookupTree(tr_in, state.label)) {
+		None() : { []; }
+		Some(res) : {
+			switch (res) {
+			Assign(var, e, goto): {
+				switch (var) {
+					Variable(name): {
+						e1 = Calculate(e, state.vars);
+						vars = setTree(state.vars, var.name, Int(e1));
+						Get_states(goto, vars);
+					}
+					Element(name, index): {
+						switch (lookupTree(state.vars, name)) {
+							Some(res1): {
+							switch (res1) {
+								Array(a): { 
+									index1 = Calculate(index, state.vars);
+									e1 = Calculate(e, state.vars);
+									array = removeFromTree(res1.a, index1);
+									newArray = setTree(array, index1, Int(e1));
+									vars0 = removeFromTree(state.vars, name);
+									vars = setTree(vars0, name, Array(newArray));
+									Get_states(goto, vars);
+								}
+								Int(n): { assert(false, "Error: array expected but variable received. \n"); Get_states(goto, state.vars); }
+							}
+							}
+							None(): { assert(false, "Error: array is not found.\n"); Get_states(goto, state.vars); }
+						}
+					}
+				}
+			}
+			AssignArr(name, arr, goto): {
+				switch (lookupTree(state.vars, name)) {
+					Some(res1): {
+						switch (res1) {
+							Array(a): { 
+								vars0 = removeFromTree(state.vars, name);
+								newArray = foldi(arr, makeTree(), \index, acc, v -> {
+									 setTree(acc, index, v);
+								});								
+								vars = setTree(vars0, name, Array(newArray));
+								Get_states(goto, vars);
+							}
+							Int(n): { assert(false, "Error: impossible to assign multiple values to a variable.\n"); Get_states(goto, state.vars); }
+						}
+					}
+					None(): { assert(false, "Error: array is not found.\n"); Get_states(goto, state.vars); }
+				}
+
+			}
+			Jamp(goto): { 
+				Get_states(goto, state.vars); 
+			}
+			Condition(bool_exp, t, f): {
+				if(Calculate(bool_exp, state.vars) == 1) {
+					Get_states(t, state.vars);
+				}
+				else {
+					Get_states(f, state.vars);
+				}
+			}
+			Print(e, goto): {
+				n = Calculate(e, state.vars);
+				println(i2s(n));
+				Get_states(goto, state.vars);
+			}
+			}	
+		}	
+	}
+}
+
+Execute_program(S0 : State,  tr_in : Tree<Label, Command>) -> [State] {
+	for([S0], \state -> length(state) > 0, \prev -> {
+		fold(prev, [], \acc, state -> {
+			concat(acc, Execute_command(state, tr_in));
+		});
+	});
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// статические проверки типов:
+
+checkExp(exp: Expression, vars : Tree<string, VarValues>) -> bool{
+  switch(exp) {
+    Sum(l, r): { checkExp(l, vars) && checkExp(r, vars); } //опускаемся ниже
+    Sub(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Mul(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Div(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Powah(e, p): { checkExp(e, vars); }
+	Comparison(operation, l, r): { checkExp(l, vars) && checkExp(r, vars); }
+	Variable(name): { 
+		switch (lookupTree(vars, name)) {
+			 Some(res): {
+				switch(res){
+					Int(n): { true; } //если name ссылается на Int, всё хорошо
+					Array(a): { println("Error: variable expected but array received.\n"); false; }
+				}
+			 }
+			None(): { println("Error: variable is not found.\n"); false; }
+		} 
+	}
+	Element(name, index): {
+		 switch (lookupTree(vars, name)) {
+			Some(res): {
+				switch(res){
+					Int(n): { println("Error: array expected but variable received. \n");  false; } 
+					Array(a): {true; } // если name ссфлается на Array и
+				}
+			}
+			None(): { println("Error: array is not found.\n"); false; }
+		} && checkExp(index, vars); // и если index ссылается на Int, то всё хорошо
+	 }
+    Int(n): { true; }
+  }
+}
+checkProgram(instrs : [Instruction], vars : Tree<string, VarValues>) -> bool{
+	// проверяем все команды и все Expression, результатом считаем конъюнкцию всех проверок
+  	fold(instrs, true, \acc, line -> {
+			switch (line.command) {
+			Assign(var, e, goto): { acc && checkExp(var, vars) && checkExp(e, vars); }
+			AssignArr(name, arr, goto): { acc && checkExp(Element(name, Int(0)), vars); }
+			Jamp(goto): { acc && true; }
+			Condition(bool_exp, t, f): { acc && checkExp(bool_exp, vars); }
+			Print(e, goto): { acc && checkExp(e, vars); }
+			}
+	});
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// перевод из NeMo в машинный код 
+
+maxLabel(commands: Tree<int, Instruction>) -> int { //поиск максимальной метки
+	foldTree(commands, 0, \label, instr, acc -> {
+		result = {
+			switch(instr.command) {
+				Assign(var, e, goto): {
+					fold(goto, 0, \arr, l -> {
+						max(l.l, arr);
+					});
+				}
+				AssignArr(name, arr, goto): {
+					fold(goto, 0, \arr_, l -> {
+						max(l.l, arr_);
+					});
+				}
+				Condition(bool_exp, t, f): {
+					newTrue = fold(t, 0, \arr, l -> {
+						max(l.l, arr);
+					});
+					newFalse = fold(f, 0, \arr, l -> {
+						max(l.l, arr);
+					});
+					max(newTrue, newFalse);
+				}
+				Print(e, goto): {
+					fold(goto, 0, \arr, l -> {
+						max(l.l, arr);
+					});
+				}
+				Jamp(goto): {
+					fold(goto, 0, \arr, l -> {
+						max(l.l, arr);
+					});
+				}
+			}
+		}
+		max3(label, acc, result);
+	});
+}
+replaceLabel(commands: Tree<int, Instruction>, original : int, target : int) -> Tree<int, Instruction> { // замена метки original на target
+	foldTree(commands, commands, \label, instr, acc -> {
+		newCommand = {
+			switch (instr.command) {
+				Assign(var, e, goto): {
+					newGoto = foldi(goto, goto, \i, arr, l -> {
+						if (l.l == original) {
+							replace(arr, i, Label(target));
+						} else {
+							arr;
+						}
+					});
+					Assign(var, e, newGoto);
+				}
+				AssignArr(name, arr, goto): {
+					newGoto = foldi(goto, goto, \i, arr_, l -> {
+						if (l.l == original) {
+							replace(arr_, i, Label(target));
+						} else {
+							arr_;
+						}
+					});
+					AssignArr(name, arr, newGoto);
+				}
+				Condition(bool_exp, t, f): {
+					newTrue = foldi(t, t, \i, arr, l -> {
+						if (l.l == original) {
+							replace(arr, i, Label(target));
+						} else {
+							arr;
+						} 
+					});
+					newFalse = foldi(f, f, \i, arr, l -> {
+						if (l.l == original) {
+							replace(arr, i, Label(target));
+						} 
+						else {
+							arr;
+						} 
+					});
+					Condition(bool_exp, newTrue, newFalse);
+				}
+				Print(e, goto): {
+					newGoto = foldi(goto, goto, \i, arr, l -> {
+						if (l.l == original) {
+							replace(arr, i, Label(target));
+						} else {
+							arr;
+						}
+					});
+					Print(e, newGoto);
+				}
+				Jamp(goto): {
+					newGoto = foldi(goto, goto, \i,arr,l -> {
+						if (l.l == original) {
+							replace(arr, i, Label(target));
+						} else {
+							arr;
+						}
+					});
+					Jamp(newGoto);
+				}
+			}
+		};
+		if (label == original) {
+			setTree(removeFromTree(acc, label), target, Instruction(Label(label), newCommand));
+		} else {
+			setTree(acc, label, Instruction(Label(label), newCommand));
+		}
+	});
+}
+changeLabels(commands: Tree<int, Instruction>, offset : int) -> Tree<int, Instruction> { //увеличение всех меток на offset
+	if (offset == 0){
+		commands;
+	} else {
+		foldTree(commands, makeTree(), \label, instr, acc -> {
+			newCommand = {
+				switch(instr.command) {
+					Assign(var, e, goto): {
+						newGoto = fold(goto, [], \labels, l -> {
+							concat(labels, [Label(l.l + offset)]);
+						});
+						Assign(var, e, newGoto);
+					}
+					AssignArr(name, arr, goto): {
+						newGoto = fold(goto, [], \labels, l -> {
+							concat(labels, [Label(l.l + offset)]);
+						});
+						AssignArr(name, arr, newGoto);
+					}
+					Condition(cond, t, f): {
+						newTrue = fold(t, [], \labels, l -> {
+							concat(labels, [Label(l.l + offset)]);
+						});
+						newFalse = fold(f, [], \labels, l -> {
+							concat(labels, [Label(l.l + offset)]);
+						});
+						Condition(cond, newTrue, newFalse);
+					}
+					Print(e, goto): {
+						newGoto = fold(goto, [], \labels, l -> {
+							concat(labels, [Label(l.l + offset)]);
+						});
+						Print(e, newGoto);
+					}
+					Jamp(goto): {
+						newGoto = fold(goto, [], \labels, l -> {
+							concat(labels, [Label(l.l + offset)]);
+						});
+						Jamp(newGoto);
+					}
+				}
+			}
+			setTree(acc, label + offset, Instruction(Label(label + offset), newCommand));
+		});
+	}
+}
+
+TRUE = Comparison("!=", Sum(Int(2), Int(2)), Int(5));
+
+translateLines(_command : _Command) -> Tree<int, Instruction> {
+	// преобразование одной NeMo команды _command
+	switch(_command) {
+		_Assign(var, e): {
+			makeTree1(0, Instruction(Label(0), Assign(var, e, [Label(1)])));
+			//просто переход к соответствующей команде
+		}
+		_AssignArr(name, arr): {
+			makeTree1(0, Instruction(Label(0), AssignArr(name, arr, [Label(1)])));
+		}
+		_Test(bool_exp): {
+			makeTree1(0, Instruction(Label(0), Condition(bool_exp, [Label(1)], [])));
+		}
+		_Print(e): {
+			makeTree1(0, Instruction(Label(0), Print(e, [Label(1)])));
+		}
+		_Iter(command): {
+			treeChanged = changeLabels(translateLines(command), 1);
+			//увеличили все метки на 1 ( Sθ:= B2S(θ)+1; )
+			treeReplaced = replaceLabel(treeChanged, maxLabel(treeChanged), 0);
+			//делали последнюю метку начальной - зациклили
+			createLoop = makeTree1(0, Instruction(Label(0), Condition(TRUE, [Label(1), Label(maxLabel(treeReplaced) + 1)], [])));
+			//Добавили инструкцию Condition(true, [начальная метка(переход к следующей итерации цикла), 
+								//метка, следующая за последней меткой итерации (выход из цикла)], 
+								//[пустой массив меток(так как false никогда не будет)])
+								// ( B2S:= {(0: if TRUE then {1, endθ} else ∅)} )
+			mergeTree(createLoop, treeReplaced); //кладём новую инструкцию в дерево
+		}
+		_RangeExecute(commands): {
+			fold(commands, makeTree(), \acc, operations -> {
+				mergeTree(acc, changeLabels(translateLines(operations), maxLabel(acc)));
+				//просто по очереди кладём инструкции в дерево, увеличивая метки на количество уже существующих меток 
+			});
+		}
+		_Select(commands): {
+			result = fold(commands, Pair(makeTree(), []), \acc, operations -> {
+				maxLeft = maxLabel(acc.first);
+				//находим максимальную в дереве аккумулятора метку ( endθ := max Sθ; )
+				chandeRight = changeLabels(translateLines(operations), maxLeft);
+				//увеличиваем все метки текущей команды на это число ( Sξ:= B2S(ξ) + endθ; )
+                replaceLastLeft = replaceLabel(acc.first, maxLeft, maxLabel(chandeRight));
+				// заменяем максимальную метку на новую максимальную метку ( endξ:= max Sξ; )
+				tree = mergeTree(replaceLastLeft, chandeRight);
+				goto = concat(acc.second, [Label(maxLeft + 1)]);
+				// добавляем метку к массиву аккумулятора
+				Pair(tree, goto);
+			});
+			createLoop = makeTree1(0, Instruction(Label(0), Condition(TRUE, result.second, [])));
+															// B2S:= {(0: if TRUE then {1, endθ} else ∅)}
+			mergeTree(createLoop, changeLabels(result.first, 1)); // кладём инструкцию в дерево, предварительно увеличив в нём метки на 1
+								  // Sθ:= B2S(θ)+1;
+		}
+	}
+}
+toAssembler(command : _Command) -> [Instruction] {
+	// проходимся по командам NeЬo, преобразуем их в комманды машинного кода и кладём в массивчик [Instruction]
+	foldTree(translateLines(command), [], \key, val, acc -> {
+		insertArray(acc, key, val);
+	});
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// парсинг NeMo-программы
+
+_Program(decls : [Declaration], instrs : Maybe<_Command>);
+
+_Command ::= _Assign, _AssignArr, _Test, _Print, _Iter, _RangeExecute, _Select;
+_Assign(var : Assigned, e : Expression);
+_AssignArr(name : string, arr : [Int]);
+_Test(bool_exp: Comparison);
+_Print(e : Expression);
+_Iter(command: _Command); // command*
+_RangeExecute(commands: [_Command]); // последовательное исполнение 
+_Select(commands: [_Command]); 
+
+negative(bool_exp : Comparison) -> Comparison { // конвертация bool_exp в не-bool_exp 
+	if (bool_exp.operation == "==") {
+		Comparison("!=", bool_exp.l, bool_exp.r);
+	} else if (bool_exp.operation == "!=") {
+		Comparison("==", bool_exp.l, bool_exp.r);
+	} else if (bool_exp.operation == ">") {
+		Comparison("<=", bool_exp.l, bool_exp.r);
+	} else if (bool_exp.operation == "<") {
+		Comparison(">=", bool_exp.l, bool_exp.r);
+	} else if (bool_exp.operation == ">=") {
+		Comparison("<", bool_exp.l, bool_exp.r);
+	} else if (bool_exp.operation == "<=") {
+		Comparison(">", bool_exp.l, bool_exp.r);
+	} else {
+		bool_exp;
+	} 
+}
+
+nemoPegActions = {
+	t1 = setTree(defaultPegActions.t, "createRangeExecute", \value -> _RangeExecute(concat([value[0]], value[1])));
+		//value[0] - первая команда RangeExecute'а, value[1] - массив всех последующих, объединяем их в один массив и суём в структуру
+	t2 = setTree(t1, "createSelect", \value -> _Select(concat([value[0]], value[1])));
+		//аналогично, только Select
+	t3 = setTree(t2, "createIf", \value -> _Select([_RangeExecute([_Test(value[0]), value[1]]),_RangeExecute([_Test(negative(value[0])),value[2]])]));
+		// if (c) a else b ~ {{c?, a} U {-c, b}} : c = value[0], a = value[1], b = value[2]
+	t4 = setTree(t3, "createWhile", \value -> _RangeExecute([_Iter(_RangeExecute([_Test(value[0]), value[1]])), _Test(negative(value[0]))]));
+		// while (c) a ~ {{c?, a}*, -c} : c = value[0], a = value[1]
+	t5 = setTree(t4, "createProgram", \value -> {
+		if (length(value[1]) == 1) {
+		//если у программы есть тело ( = value[1] )
+			_Program(value[0], Some(value[1][0]));
+		} else {
+			_Program(value[0], None());
+		}
+	});
+	SemanticActions(t5);
+}
+
+programNemo(s : string) -> _Program {
+	gram = "#include C:\f\labs\lab16.lingo";
+    parsic(compilePegGrammar(gram), s, nemoPegActions);
+}
+
+main() {
+	// prog = programNemo("
+	// var x : [int];
+	// var y : int;
+	// var z : [int];
+	// { (x[0]) = (z * 5) } "); // косяк - массив в Expression
+
+	// prog = programNemo("
+	// var x : [int];
+	// var y : int;
+	// var z : [int];
+	// { (x[z]) = 30 } "); // косяк - массив в качестве индекса
+
+	// prog = programNemo("
+	// var x : [int];
+	// var y : int;
+	// { y = 2;
+	// x = [0 1 5 9 8];
+	// print(( (x[3]) * y )) } "); // 9*2=18 всё хорошо
+
+	prog = programNemo("
+	var x : [int];
+	var y : int;
+	{
+	(x[0]) = 30;
+	y = ((x[0])/3);
+	if (y < (x[0])) 
+	then
+		{print(y)}
+	else 
+		{print((x[0]))}
+	} "); // минимум из двух чисел
+
+	// prog = programNemo("
+	// var x : [int];
+	// var y : int;
+	// {
+	// (x[0]) = 30;
+	// y = ((x[0])/3);
+	// print((x[0]));
+	// while ((x[0]) >= y){
+	// 	(x[0]) = ((x[0]) - y);
+	// 	print((x[0]))
+	// }
+	// } "); // вычитание десяток из 30
+
+	vars = Init_vars(prog.decls); // инициализация переменных и массиврв
+	instrs = {
+		switch(prog.instrs) { 
+    	    None(): [];
+    	    Some(result): toAssembler(result); //если у NeMo программы есть тело, коныертируем его в машинный код
+    	}
+	} // получили массив инструкций
+
+	if (checkProgram(instrs, vars)) { //вызов статическую проверку типов
+	 	Execute_program(State(Label(0), vars), Init_tree(instrs)); //запуск программы 
+	 	println("\nExecution completed successfully.\n");
+	}
+	else 
+		println("Error was found in the program..\n");
+	quit(0);
+}

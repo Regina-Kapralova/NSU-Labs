@@ -1,0 +1,49 @@
+import form/renderform;
+
+
+Fibonacci_number(n : int) -> [int] {
+	if (n < 0) { [] }
+	else 
+		if (n == 0) { [0]; } 
+		else 
+			if (n == 1) { [0,1]; }
+			else { 
+				result = Fibonacci_number(n-1);
+				concat(result, [result[n-1] + result[n-2]]); 
+			} 
+}
+
+Fibonacci_tail(n : int) -> [int] {
+	if (n < 0) { []; }
+	else 
+		if (n == 0) { [0]; }
+		else { Fibonacci_tail_(n, [0,1]); }
+}
+
+Fibonacci_tail_(n : int, result : [int]) -> [int] { 
+	if (n == 1) { result; } 
+	else {
+		l = length(result);
+		Fibonacci_tail_(n-1, concat(result, [result[l-1] + result[l-2]])); 
+	}
+}  
+
+Fibonacci(n : int) -> [int] {
+	if (n < 0) { []; }
+	else 
+		if (n == 0) { [0]; }
+		else 
+			if(n == 1) { [0, 1]; }
+    		else {
+        		result : ref [int] = ref [0, 1];
+	    		fori(2, n, (\i -> { refArrayPush(result, (^result[i - 2] + ^result[i - 1]));}));
+	    		^result;
+    		} 
+}
+
+main() {
+	println(Fibonacci_number(10));
+	println(Fibonacci_tail(10));
+	println(Fibonacci(10));
+}
+

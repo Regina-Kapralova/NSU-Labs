@@ -1,0 +1,45 @@
+program = ws declar*:d command*:l {createProgram(:d, :l)};
+
+exp = sum | sub | mul | div | int | var | element | powah | bool_exp;
+sum = "(" ws exp:l ws "+" ws exp:r ws ")" {Sum(:l, :r)};
+sub = "(" ws exp:l ws "-" ws exp:r ws ")" {Sub(:l, :r)};
+mul = "(" ws exp:l ws "*" ws exp:r ws ")" {Mul(:l, :r)};
+div = "(" ws exp:l ws "/" ws exp:r ws ")" {Div(:l, :r)};
+int = digit+$n ws {Int(s2i($n))};
+var = letter+$s {Variable($s)};
+element = "(" ws letter+$s ws "[" ws exp:e ws "]" ws ")" {Element($s, :e)};
+powah = "(" ws* exp:l ws+ "^" ws+ digit+$p ws* ")" {Powah(:l, s2i($p))};
+bool_exp = "(" ws exp:l ws compare$c ws exp:r ws ")" {Comparison($c, :l, :r)};
+
+assigned = var | element;
+
+type = t_int | t_arr;
+t_int = "int" {VarInt()};
+t_arr = "[" ws "int" ws "]" {VarArr()};
+declar = "var" ws letter+$s ws ":" ws type:t ws ";" ws {Declaration($s, :t)};
+
+label = digit+$d ws {Label(s2i($d))};
+
+
+command =  assign | assArr | test | if | print | range_execute | select | while;
+
+assign = ws assigned:s ws "=" ws exp:e ws {_Assign(:s, :e)};
+assArr = ws letter+$s ws "=" ws "[" ws int*:arr ws "]" ws {_AssignArr($s, :arr)};
+test = ws "(" ws bool_exp:c ws ")" ws "?" ws {_Test(:c)}; 
+if = ws "if" ws bool_exp:op ws "then" ws "{" ws command:t ws "}" ws "else" ws "{" ws command:f ws "}" ws {createIf(:op, :t, :f)};
+bool_exp = "(" ws exp:l ws compare$c ws exp:r ws ")" ws {Comparison($c, :l, :r)};
+print = ws "print" ws "(" ws exp:e ws ")" ws {_Print(:e)};
+
+range_execute = ws "{" ws command:c ws range_execute_*:c_ ws "}" ws {createRangeExecute(:c, :c_)};
+    range_execute_ = ws ";" ws command:c ws {:c};
+select = ws "{" ws command:c ws select_+:r ws "}" ws {createSelect(:c, :r)};
+    select_ = ws "U" ws command:c ws {:c};
+while = ws "while" ws bool_exp:c ws command:body {createWhile(:c, :body)};
+
+
+digit = '0' - '9';
+letter = 'a' - 'z' | 'A' - 'Z';
+operation = "+" | "-" | "*" | "/" | "%";
+compare = "==" | "!=" | "<=" | ">=" | ">" | "<";
+s =" " | "\t" | "\n" | "\r";
+ws = s*;

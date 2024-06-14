@@ -1,0 +1,22 @@
+import form/renderform;
+
+
+inds(a : [int], m : int) -> [Pair<int, int>]{
+	result : ref [Pair<int, int>] = ref [Pair(0,0)];
+	l = length(a) - 1;
+	fori(0, l, (\i -> {
+	 	fori(i+1, l, \j -> {
+	 		if (a[i] + a[j] == m) {
+				 refArrayPush(result, Pair(i, j)) 
+			}	
+	 	})
+	}))
+	^result;
+}
+
+main() {
+	a = [0, 1, 6, 8, 9, 7, 6, 75, 13, 45, 9,  1,  2,  4,  5,  5,  3,  9,];
+	////[0, 1, 2, 3, 4, 5, 6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17,];
+	println(inds(a, 10));
+}
+

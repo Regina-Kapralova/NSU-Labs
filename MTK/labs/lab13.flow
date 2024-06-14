@@ -1,0 +1,230 @@
+import ds/tree;
+import runtime;
+import lingo/pegcode/driver;
+
+gram = "#include C:\f\labs\lab13.lingo";
+
+Expression ::= Sum, Div, Sub, Mul, Int, Variable, Powah, Comparison;
+Sum(x: Expression, y: Expression);
+Div(x: Expression, y: Expression);
+Sub(x: Expression, y: Expression);
+Mul(x: Expression, y: Expression);
+Powah(e: Expression, p: int);
+Variable(name: string);
+Int(n: int);
+Comparison(operation : string, l : Expression, r : Expression);
+
+Label(l : int);
+State(label : Label, vars : Tree<string, int>);
+
+Command ::= Assign, Jamp, Condition, Print;
+Assign(var : Variable, e : Expression, goto : [Label]);
+Jamp(goto : [Label]);
+Condition(bool_exp : Comparison, t : [Label], f : [Label]);
+Print(e : Expression, goto : [Label]);
+
+Declaration(name : string);
+Instruction(label : Label, command : Command);
+Tree_instruct(t : Tree<Label, Command>);
+Program(decls : [Declaration], instrs : [Instruction]);
+
+ToProgram(str : string) -> Program {
+	parsic(compilePegGrammar(gram), str, defaultPegActions);
+}
+
+Labels2str(goto : [Label]) -> string {
+	m = fold(goto, [], \acc, val -> {
+		concat(acc, [val.l]);
+	});
+	strGlue(map(m, i2s), ", ");
+}
+
+Exp2str(exp: Expression) -> string {
+  switch(exp) {
+    Sum(l, r): { "(" + strGlue([Exp2str(l), "+", Exp2str(r)], " ") + ")"; }
+    Sub(l, r): { "(" + strGlue([Exp2str(l), "-", Exp2str(r)], " ") + ")"; }
+    Mul(l, r): { "(" + strGlue([Exp2str(l), "*", Exp2str(r)], " ") + ")"; }
+    Div(l, r): { "(" + strGlue([Exp2str(l), "/", Exp2str(r)], " ") + ")"; }
+    Powah(e, p): {"(" + strGlue([Exp2str(e), "^", i2s(p)], " ") + ")"; }
+    Variable(name): { name; }
+    Int(n): { i2s(n); }
+	Comparison(operation, l, r): {"(" + Exp2str(l) + " "  + operation + " " + Exp2str(r) + ")";}
+  }
+}
+
+Command2str(command : Command) -> string {
+	switch(command)	{
+		Assign(var, e, goto): {	var.name + " := " + Exp2str(e) + " goto { "+ Labels2str(goto) + " }"; }
+		Jamp(goto): { "goto { " + Labels2str(goto) + " }"; }
+		Condition(bool_exp, t, f): { "if (" + Exp2str(bool_exp) + ") then { " + Labels2str(t) + " } else {" + Labels2str(f) + " }";	}
+		Print(e, goto): { "print (" + Exp2str(e) + ") goto { " + Labels2str(goto) + " }"; }
+	}
+}
+
+PrintProgram(prog: Program) {
+	fori(0, length(prog.decls)-1, (\i -> {
+	 	println("var " + prog.decls[i].name + " : int;");	
+	}));
+  	fori(0, length(prog.instrs)-1, (\i -> {
+		println (i2s(prog.instrs[i].label.l) + ": " + Command2str(prog.instrs[i].command));
+	}));
+}
+
+Init_vars(decls : [Declaration]) -> Tree<string, int> {
+	fold(decls, makeTree(), \acc, v -> {
+		setTree(acc, v.name, 0);
+	});
+}
+
+Init_tree(instrs : [Instruction]) -> Tree<Label, Command> {
+	fold(instrs, makeTree(), \acc, v -> {
+		setTree(acc, v.label, v.command);
+	});
+}
+
+Get_states(goto : [Label], vars : Tree<string, int>) -> [State] {
+	fold(goto, [], \acc, val -> {
+		concat(acc, [State(val, vars)]);
+	});
+}
+
+Calculate(exp: Expression, vars : Tree<string, int>) -> int {
+  switch(exp) {
+    Sum(l, r): { Calculate(l, vars) + Calculate(r, vars); }
+    Sub(l, r): { Calculate(l, vars) - Calculate(r, vars); }
+    Mul(l, r): { Calculate(l, vars) * Calculate(r, vars); }
+    Div(l, r): { 
+      assert(Calculate(r, vars) != 0, "Error: division by zero in integer calculator.\n");
+      Calculate(l, vars) / Calculate(r, vars); 
+    }
+    Powah(e, p): { 
+      assert(p >= 0, "Error: negative exponent in integer calculator.\n");
+      pow(Calculate(e, vars), p); 
+    }
+	Comparison(operation, l, r): {
+		l1 = Calculate(l, vars);
+		r1 = Calculate(r, vars);
+		if (operation == "==" && l1 == r1) { 1; }
+		else if (operation == "!=" && l1 != r1) { 1; }
+		else if (operation == ">=" && l1 >= r1) { 1; }
+		else if (operation == "<=" && l1 <= r1) { 1; }
+		else if (operation == ">" && l1 > r1) { 1; }
+		else if (operation == "<" && l1 < r1) { 1; }
+		else { 0; }
+		}
+	Variable(name): { 
+		switch (lookupTree(vars, name)) {
+			Some(res): { res; } 
+			None(): { assert(false, "Error: value of variable is not found.\n"); 0; }
+		} 
+	}
+    Int(n): { n; }
+  }
+}
+
+Execute_command(state : State, tr_in : Tree_instruct) -> [State] {
+	switch (lookupTree(tr_in.t, state.label)) {
+		None() : { []; }
+		Some(res) : {
+			switch (res) {
+			Assign(var, e, goto): {
+				e1 = Calculate(e, state.vars);
+				vars = setTree(state.vars, var.name, e1);
+				Get_states(goto, vars);
+				}
+			Jamp(goto): { 
+				Get_states(goto, state.vars); 
+			}
+			Condition(bool_exp, t, f): {
+				if(Calculate(bool_exp, state.vars) == 1) {
+					Get_states(t, state.vars);
+				}
+				else {
+					Get_states(f, state.vars);
+				}
+			}
+			Print(e, goto): {
+				n = Calculate(e, state.vars);
+				println(i2s(n));
+				Get_states(goto, state.vars);
+			}
+			}	
+		}	
+	}
+}
+
+Execute_program(S0 : State,  tr_in : Tree_instruct) -> [State] {
+	for([S0], \state -> length(state) > 0, \prev -> {
+		fold(prev, [], \acc, state -> {
+			concat(acc, Execute_command(state, tr_in));
+		});
+	});
+}
+
+checkExp(exp: Expression, vars : Tree<string, int>) -> bool{
+  switch(exp) {
+    Sum(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Sub(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Mul(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Div(l, r): { checkExp(l, vars) && checkExp(r, vars); }
+    Powah(e, p): { checkExp(e, vars); }
+	Comparison(operation, l, r): { checkExp(l, vars) && checkExp(r, vars); }
+	Variable(name): { 
+		switch (lookupTree(vars, name)) {
+			Some(res): { true } 
+			None(): { false; }
+		} 
+	}
+    Int(n): { true; }
+  }
+}
+checkProgram(instrs : [Instruction], vars : Tree<string, int>) -> bool{
+  	fold(instrs, true, \acc, elem -> {
+			switch (elem.command) {
+			Assign(var, e, goto): { acc && checkExp(e, vars); }
+			Jamp(goto): { acc && true; }
+			Condition(bool_exp, t, f): { acc && checkExp(bool_exp, vars); }
+			Print(e, goto): { acc && checkExp(e, vars); }
+			}
+	});
+}
+
+main() {
+	// prog = ToProgram("
+	// 	var x : int;
+	// 	var y : int;
+	// 	0: x := 10 goto {1 2};
+	// 	1: y := 20 goto {3 6};
+	// 	2: print(x) goto {};
+    //     3: print(y) goto {25};
+    //     15: print((x + y)) goto {};
+	// 	5: if (x == 10) then {15} else {};
+	// 	6: goto {5};
+	// ");
+	prog = ToProgram("
+	 	var x : int;
+	 	var y : int;
+		0: x := 10 goto {1};
+		1: y := 15 goto {2};
+		2: goto {3 8};
+		3: goto {4 6};
+		4: if (x > y) then {5} else {};
+		5: x := (x - y) goto {2};
+		6: if (x < y) then {7} else {};
+		7: y := (y - x) goto {2};
+		8: if ( x == y) then {9} else {};
+		9: print(x) goto {};
+	")
+
+	vars = Init_vars(prog.decls);
+	if (checkProgram(prog.instrs, vars)) {
+		S0 = State(Label(0), vars);
+		tr_in = Tree_instruct(Init_tree(prog.instrs));
+		Execute_program(S0, tr_in); 
+		println("The End.\n");
+	}
+	
+	println("Program code:");
+	PrintProgram(prog);
+	
+}
