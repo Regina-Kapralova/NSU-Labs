@@ -3,6 +3,7 @@ package ru.nsu.kapralova.factory.statuses;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -67,6 +68,7 @@ public class Window extends JFrame implements ActionListener {
         add(details, BorderLayout.PAGE_START);
 
         JPanel engines = new JPanel(new GridLayout(4, 1));
+        engines.setBorder(new EmptyBorder(10, 10, 10, 10));
         details.add(engines);
         engines.add(engine);
         engines.add(speedE);
@@ -74,7 +76,7 @@ public class Window extends JFrame implements ActionListener {
         JSlider slider = new JSlider(0, 10);
         slider.setPaintLabels(true);
         slider.setMajorTickSpacing(1);
-        slider.setBackground(Color.pink);
+        slider.setBackground(Color.lightGray);
         engines.add(slider);
         slider.addChangeListener(new ChangeListener() {
             public void stateChanged(ChangeEvent e) {
@@ -84,6 +86,7 @@ public class Window extends JFrame implements ActionListener {
         });
 
         JPanel bodies = new JPanel(new GridLayout(4, 1));
+        bodies.setBorder(new EmptyBorder(10, 10, 10, 10));
         details.add(bodies);
         bodies.add(body);
         bodies.add(speedB);
@@ -91,7 +94,7 @@ public class Window extends JFrame implements ActionListener {
         JSlider slider2 = new JSlider(0, 10);
         slider2.setPaintLabels(true);
         slider2.setMajorTickSpacing(1);
-        slider2.setBackground(Color.MAGENTA);
+        slider2.setBackground(Color.lightGray);
         bodies.add(slider2);
         slider2.addChangeListener(new ChangeListener() {
             public void stateChanged(ChangeEvent e) {
@@ -102,6 +105,7 @@ public class Window extends JFrame implements ActionListener {
 
 
         JPanel accessories = new JPanel(new GridLayout(4, 1));
+        accessories.setBorder(new EmptyBorder(10, 10, 10, 10));
         details.add(accessories);
         accessories.add(accessory);
         accessories.add(speedA);
@@ -109,7 +113,7 @@ public class Window extends JFrame implements ActionListener {
         JSlider slider3 = new JSlider(0, 10);
         slider3.setPaintLabels(true);
         slider3.setMajorTickSpacing(1);
-        slider3.setBackground(Color.pink);
+        slider3.setBackground(Color.lightGray);
         accessories.add(slider3);
         slider3.addChangeListener(new ChangeListener() {
             public void stateChanged(ChangeEvent e) {
@@ -122,7 +126,7 @@ public class Window extends JFrame implements ActionListener {
         JSlider slider4 = new JSlider(0, 30);
         slider4.setPaintLabels(true);
         slider4.setMajorTickSpacing(3);
-        slider4.setBackground(Color.green);
+        slider4.setBackground(Color.lightGray);
         frame.add(slider4);
         slider4.addChangeListener(new ChangeListener() {
             public void stateChanged(ChangeEvent e) {
@@ -135,7 +139,7 @@ public class Window extends JFrame implements ActionListener {
         JSlider slider5 = new JSlider(0, 30);
         slider5.setPaintLabels(true);
         slider5.setMajorTickSpacing(3);
-        slider5.setBackground(Color.yellow);
+        slider5.setBackground(Color.lightGray);
         frame.add(slider5);
         slider5.addChangeListener(new ChangeListener() {
             public void stateChanged(ChangeEvent e) {
